@@ -184,21 +184,43 @@ function Process-FirewallRule {
     Debug "* Processing: Firewall"
 
     $Rule = Get-NetFirewallRule -Name "OpenSSH-Server-In-TCP" -ErrorAction SilentlyContinue
-    if (!$Rule) {
-        Change "Adding OpenSSH Server firewall rule"
-        $Rule = New-NetFirewallRule -Name "OpenSSH-Server-In-TCP" `
+
+    if ($null -eq $Rule) {
+        Change "Creating OpenSSH firewall rule"
+
+        New-NetFirewallRule `
+            -Name "OpenSSH-Server-In-TCP" `
             -DisplayName "OpenSSH Server (sshd)" `
             -Description "OpenSSH Server [TCP 22]" `
-            -Enabled `
+            -Enabled True `
             -Direction Inbound `
             -Protocol TCP `
             -LocalPort 22 `
             -Action Allow `
-            -Profile Domain, Private, Public `
+            -Profile Domain,Private,Public `
+            -RemoteAddress Any `
+            -ErrorAction Stop
+    }
+    else {
+        Debug "Updating existing OpenSSH firewall rule"
+
+        Set-NetFirewallRule `
+            -Name "OpenSSH-Server-In-TCP" `
+            -Enabled True `
+            -Direction Inbound `
+            -Action Allow `
+            -Profile Domain,Private,Public `
+            -RemoteAddress Any `
+            -ErrorAction Stop
+
+        Set-NetFirewallPortFilter `
+            -AssociatedNetFirewallRule "OpenSSH-Server-In-TCP" `
+            -Protocol TCP `
+            -LocalPort 22 `
             -ErrorAction Stop
     }
 
-    Set-FirewallRule $Rule
+    Debug "Firewall rule configured"
 }
 
 function Start-SSHServer {
