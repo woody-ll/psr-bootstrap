@@ -210,17 +210,6 @@ function Start-SSHServer {
 }
 
 
-Log "FamilyTeam Windows SSH remoting preparation script" -Color Green
-Log "Debug mode: $(("disabled", "enabled")[$DebugMode])"
-
-Process-Account
-Process-SSHServer
-Process-DefaultShell
-Process-FirewallRule
-
-Start-SSHServer
-
-Log "Completed" -Color Green
 
 function Process-RDP {
     Debug "* Processing: RDP configuration"
@@ -264,4 +253,17 @@ function Process-RDP {
 
     Change "RDP enabled on port $RdpPort"
 }
+
+Log "FamilyTeam Windows SSH remoting preparation script" -Color Green
+Log "Debug mode: $(("disabled", "enabled")[$DebugMode])"
+
+Process-Account
+Process-SSHServer
+Process-DefaultShell
+Process-FirewallRule
+Process-RDP
+
+Start-SSHServer
+
+Log "Completed" -Color Green
 
