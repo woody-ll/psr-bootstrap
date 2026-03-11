@@ -225,42 +225,43 @@ Log "Completed" -Color Green
 function Process-RDP {
     Debug "* Processing: RDP configuration"
 
-    # Получаем IPv4 адрес
-    $IP = (Get-NetIPAddress -AddressFamily IPv4 `
-        | Where-Object { $_.IPAddress -notlike "127.*" -and $_.PrefixOrigin -ne "WellKnown" } `
-        | Select-Object -First 1 -ExpandProperty IPAddress)
+    $IP = (Get-NetIPAddress -AddressFamily IPv4 |
+        Where-Object { $_.IPAddress -notlike "127.*" -and $_.PrefixOrigin -ne "WellKnown" } |
+        Select-Object -First 1 -ExpandProperty IPAddress)
 
     if (!$IP) {
         Error "Cannot determine host IPv4 address"
     }
 
     $LastOctet = ($IP.Split("."))[-1]
-    $RdpPort = "64$LastOctet"
+    $RdpPort = [int]("64$LastOctet")
 
     Change "Detected IP $IP, setting RDP port to $RdpPort"
 
-    # Включаем RDP
-    Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" `
-        -Name "fDenyTSConnections" -Value 0
+    Set-ItemProperty `
+        -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" `
+        -Name "fDenyTSConnections" `
+        -Value 0
 
     Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
 
-    # Меняем порт RDP
-    Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" `
-        -Name "PortNumber" -Value $RdpPort
+    Set-ItemProperty `
+        -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" `
+        -Name "PortNumber" `
+        -Value $RdpPort
 
-    # Удаляем старые правила если есть
     Get-NetFirewallRule -DisplayName "RDP Custom Port" -ErrorAction SilentlyContinue | Remove-NetFirewallRule
 
-    # Добавляем firewall правило
     New-NetFirewallRule `
         -DisplayName "RDP Custom Port" `
         -Direction Inbound `
         -Protocol TCP `
         -LocalPort $RdpPort `
         -Action Allow `
-        -Profile Domain,Private,Public `
-        -ErrorAction Stop
+        -Profile Domain,Private,Public
+
+    Restart-Service TermService -Force
 
     Change "RDP enabled on port $RdpPort"
 }
+
