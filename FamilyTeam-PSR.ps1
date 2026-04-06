@@ -216,7 +216,6 @@ function Start-SSHServer {
 }
 
 
-
 function Process-RDP {
     Debug "* Processing: RDP configuration"
 
@@ -233,18 +232,30 @@ function Process-RDP {
 
     Change "Detected IP $IP, setting RDP port to $RdpPort"
 
+    # Enable RDP via registry
     Set-ItemProperty `
         -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" `
         -Name "fDenyTSConnections" `
         -Value 0
 
-    Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+    # Enable built-in RDP firewall rules (handle localized DisplayGroup names)
+    $RdpRules = Get-NetFirewallRule | Where-Object {
+        $_.DisplayGroup -match "Remote Desktop|Удаленный рабочий стол"
+    }
+    if ($RdpRules) {
+        Change "Enabling $($RdpRules.Count) built-in RDP firewall rule(s)"
+        $RdpRules | Enable-NetFirewallRule
+    } else {
+        Debug "No built-in RDP firewall rules found, will create custom rule only"
+    }
 
+    # Set custom RDP port
     Set-ItemProperty `
         -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" `
         -Name "PortNumber" `
         -Value $RdpPort
 
+    # Create firewall rule for custom port
     Get-NetFirewallRule -DisplayName "RDP Custom Port" -ErrorAction SilentlyContinue | Remove-NetFirewallRule
 
     New-NetFirewallRule `
@@ -259,6 +270,7 @@ function Process-RDP {
 
     Change "RDP enabled on port $RdpPort"
 }
+
 
 Log "FamilyTeam Windows SSH remoting preparation script" -Color Green
 Log "Debug mode: $(("disabled", "enabled")[$DebugMode])"
