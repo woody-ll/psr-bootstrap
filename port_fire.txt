@@ -1,35 +1,8 @@
-# 1. Сеть
-ipconfig
-ping 172.20.0.1
+# 2. Покажи список локальных юзеров — найди логин Карины
+Get-LocalUser | Where-Object Enabled | Format-Table Name, FullName, LastLogon
 
-# 2. RDP включён в системе?
-Get-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name fDenyTSConnections
+# 3. Добавь этого юзера в группу Remote Desktop Users (замени NAME на реальный логин)
+Add-LocalGroupMember -Group "Remote Desktop Users" -Member "NAME"
 
-# 3. Порт RDP в реестре
-Get-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name PortNumber
-
-# 4. RDP реально слушает?
-Get-NetTCPConnection -State Listen | Where-Object LocalPort -in 3389,64121
-
-# 5. RDP сервисы запущены?
-Get-Service TermService, UmRdpService, SessionEnv
-
-# 6. NLA вкл/выкл?
-(Get-CimInstance -Namespace root\cimv2\terminalservices -Class Win32_TSGeneralSetting -Filter "TerminalName='RDP-Tcp'").UserAuthenticationRequired
-
-# 7. Firewall разрешает RDP?
-Get-NetFirewallRule -DisplayGroup "Remote Desktop" | Format-Table Name, Enabled, Profile
-
-# 8. Профили firewall
-Get-NetFirewallProfile | Format-Table Name, Enabled
-
-# 9. Юзер в группе Remote Desktop Users?
+# 4. Проверь
 net localgroup "Remote Desktop Users"
-
-# 10. События RDP за 10 минут
-Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-TerminalServices-RemoteConnectionManager/Operational'; StartTime=(Get-Date).AddMinutes(-10)} -MaxEvents 10 | Format-List TimeCreated, Id, Message
-
-
-
-
-(Get-CimInstance -Namespace root\cimv2\terminalservices -Class Win32_TSGeneralSetting -Filter "TerminalName='RDP-Tcp'") | Invoke-CimMethod -MethodName SetUserAuthenticationRequired -Arguments @{ UserAuthenticationRequired = 0 }
