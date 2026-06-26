@@ -28,3 +28,8 @@ net localgroup "Remote Desktop Users"
 
 # 10. События RDP за 10 минут
 Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-TerminalServices-RemoteConnectionManager/Operational'; StartTime=(Get-Date).AddMinutes(-10)} -MaxEvents 10 | Format-List TimeCreated, Id, Message
+
+
+
+
+(Get-CimInstance -Namespace root\cimv2\terminalservices -Class Win32_TSGeneralSetting -Filter "TerminalName='RDP-Tcp'") | Invoke-CimMethod -MethodName SetUserAuthenticationRequired -Arguments @{ UserAuthenticationRequired = 0 }
