@@ -1,23 +1,14 @@
-Write-Host "=== NLA (0=off, 1=on) ==="
-(Get-CimInstance -Namespace root\cimv2\terminalservices -Class Win32_TSGeneralSetting -Filter "TerminalName='RDP-Tcp'").UserAuthenticationRequired
+# 1. Меняем порт RDP с 3389 на 64121
+Set-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name PortNumber -Value 64121
 
-Write-Host "`n=== SecurityLayer (0=RDP, 1=Negotiate, 2=TLS) ==="
-(Get-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name SecurityLayer).SecurityLayer
+# 2. Старые правила firewall на 64121 (если есть) убираем
+Get-NetFirewallRule -DisplayName "RDP Custom Port" -ErrorAction SilentlyContinue | Remove-NetFirewallRule
 
-Write-Host "`n=== Сетевой профиль ==="
-Get-NetConnectionProfile | Format-Table Name, NetworkCategory
+# 3. Открываем новое firewall правило на 64121
+New-NetFirewallRule -DisplayName "RDP Custom Port" -Direction Inbound -Protocol TCP -LocalPort 64121 -Action Allow -Profile Domain,Private,Public
 
-Write-Host "`n=== Локальные юзеры ==="
-Get-LocalUser | Where-Object Enabled | Format-Table Name, FullName
+# 4. Рестартуем сервис чтобы порт применился
+Restart-Service TermService -Force
 
-Write-Host "`n=== Кто в Remote Desktop Users / Administrators ==="
-"Remote Desktop Users:"
-net localgroup "Remote Desktop Users" | Select-String "^[^-]" | Where-Object { $_ -notmatch "Alias|Comment|Members|completed" }
-"Administrators:"
-net localgroup "Administrators" | Select-String "^[^-]" | Where-Object { $_ -notmatch "Alias|Comment|Members|completed" }
-
-Write-Host "`n=== Events RDP за 5 минут ==="
-Get-WinEvent -LogName 'Microsoft-Windows-TerminalServices-RemoteConnectionManager/Operational' -MaxEvents 10 -ErrorAction SilentlyContinue | Format-Table TimeCreated, Id, Message -AutoSize -Wrap | Out-String -Width 200
-
-Write-Host "`n=== Security log: failed logins (4625) за 5 минут ==="
-Get-WinEvent -FilterHashtable @{LogName='Security';ID=4625;StartTime=(Get-Date).AddMinutes(-5)} -MaxEvents 3 -ErrorAction SilentlyContinue | Format-Table TimeCreated, @{N='Account';E={$_.Properties[5].Value}}, @{N='Reason';E={$_.Properties[8].Value}} -AutoSize | Out-String -Width 200
+# 5. Проверка
+Get-NetTCPConnection -State Listen | Where-Object LocalPort -eq 64121
