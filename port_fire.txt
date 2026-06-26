@@ -1,8 +1,23 @@
-# 2. Покажи список локальных юзеров — найди логин Карины
-Get-LocalUser | Where-Object Enabled | Format-Table Name, FullName, LastLogon
+Write-Host "=== NLA (0=off, 1=on) ==="
+(Get-CimInstance -Namespace root\cimv2\terminalservices -Class Win32_TSGeneralSetting -Filter "TerminalName='RDP-Tcp'").UserAuthenticationRequired
 
-# 3. Добавь этого юзера в группу Remote Desktop Users (замени NAME на реальный логин)
-Add-LocalGroupMember -Group "Remote Desktop Users" -Member "NAME"
+Write-Host "`n=== SecurityLayer (0=RDP, 1=Negotiate, 2=TLS) ==="
+(Get-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name SecurityLayer).SecurityLayer
 
-# 4. Проверь
-net localgroup "Remote Desktop Users"
+Write-Host "`n=== Сетевой профиль ==="
+Get-NetConnectionProfile | Format-Table Name, NetworkCategory
+
+Write-Host "`n=== Локальные юзеры ==="
+Get-LocalUser | Where-Object Enabled | Format-Table Name, FullName
+
+Write-Host "`n=== Кто в Remote Desktop Users / Administrators ==="
+"Remote Desktop Users:"
+net localgroup "Remote Desktop Users" | Select-String "^[^-]" | Where-Object { $_ -notmatch "Alias|Comment|Members|completed" }
+"Administrators:"
+net localgroup "Administrators" | Select-String "^[^-]" | Where-Object { $_ -notmatch "Alias|Comment|Members|completed" }
+
+Write-Host "`n=== Events RDP за 5 минут ==="
+Get-WinEvent -LogName 'Microsoft-Windows-TerminalServices-RemoteConnectionManager/Operational' -MaxEvents 10 -ErrorAction SilentlyContinue | Format-Table TimeCreated, Id, Message -AutoSize -Wrap | Out-String -Width 200
+
+Write-Host "`n=== Security log: failed logins (4625) за 5 минут ==="
+Get-WinEvent -FilterHashtable @{LogName='Security';ID=4625;StartTime=(Get-Date).AddMinutes(-5)} -MaxEvents 3 -ErrorAction SilentlyContinue | Format-Table TimeCreated, @{N='Account';E={$_.Properties[5].Value}}, @{N='Reason';E={$_.Properties[8].Value}} -AutoSize | Out-String -Width 200
